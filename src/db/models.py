@@ -1,9 +1,30 @@
-from sqlalchemy import String, Integer, Boolean, ForeignKey, Index, Enum, UniqueConstraint
+from sqlalchemy import String, Integer, Boolean, Table, ForeignKey, Index, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 import enum
 from .base import Base
 
+
+# -- ASSOCIATION TABLES --
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    mapped_column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    mapped_column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    UniqueConstraint("user_id", "role_id", name="uq_user_role")
+)
+
+
+role_permissions = Table(
+    "role_permissions",
+    Base.metadata,
+    mapped_column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    mapped_column("permission_id", ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
+    UniqueConstraint("role_id", "permission_id", name="uq_role_permission")
+)
+
+
+# -- MODELS --
 class User(Base):
     __tablename__ = "users"
 
@@ -52,3 +73,24 @@ class AuthIdentity(Base):
         # One active identity per provider per identifier_normalized
         UniqueConstraint("provider", "identifier_normalized", name="uq_identity_provider_identifier"),
     )
+
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    description: Mapped[Optional[str]]
+
+    users: Mapped[list[User]] = relationship("User", secondary=user_roles, back_populates="roles")
+    permissions: Mapped[list["Permission"]] = relationship("Permission", secondary=role_permissions, back_populates="roles")
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(128), unique=True, index=True)  # e.g. "user:read", "user:assign-role"
+    description: Mapped[Optional[str]]
+
+    roles: Mapped[list[Role]] = relationship("Role", secondary=role_permissions, back_populates="permissions")
