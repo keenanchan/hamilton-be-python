@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Boolean, Table, ForeignKey, Index, Enum, UniqueConstraint
+from sqlalchemy import String, Integer, Boolean, Table, Column, ForeignKey, Index, Enum, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import Optional
 import enum
@@ -9,18 +9,16 @@ from .base import Base
 user_roles = Table(
     "user_roles",
     Base.metadata,
-    mapped_column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
-    mapped_column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
-    UniqueConstraint("user_id", "role_id", name="uq_user_role")
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
 role_permissions = Table(
     "role_permissions",
     Base.metadata,
-    mapped_column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
-    mapped_column("permission_id", ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
-    UniqueConstraint("role_id", "permission_id", name="uq_role_permission")
+    Column("role_id", ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column("permission_id", ForeignKey("permissions.id", ondelete="CASCADE"), primary_key=True),
 )
 
 
@@ -33,8 +31,17 @@ class User(Base):
     email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # NOT unique here
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    identities: Mapped[list["AuthIdentity"]] = relationship("AuthIdentity", back_populates="user", cascade="all, delete-orphan")
-    roles: Mapped[list["Role"]] = relationship("Role", secondary="user_roles", back_populates="users")
+    identities: Mapped[list["AuthIdentity"]] = relationship(
+        "AuthIdentity",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    roles: Mapped[list["Role"]] = relationship(
+        "Role",
+        secondary="user_roles",
+        back_populates="users",
+        passive_deletes=True
+    )
 
 
 # Partial unique index on email WHEN email is not null
@@ -82,8 +89,18 @@ class Role(Base):
     name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     description: Mapped[Optional[str]]
 
-    users: Mapped[list[User]] = relationship("User", secondary=user_roles, back_populates="roles")
-    permissions: Mapped[list["Permission"]] = relationship("Permission", secondary=role_permissions, back_populates="roles")
+    users: Mapped[list[User]] = relationship(
+        "User",
+        secondary=user_roles,
+        back_populates="roles",
+        passive_deletes=True
+    )
+    permissions: Mapped[list["Permission"]] = relationship(
+        "Permission",
+        secondary=role_permissions,
+        back_populates="roles",
+        passive_deletes=True
+    )
 
 
 class Permission(Base):
@@ -93,4 +110,9 @@ class Permission(Base):
     code: Mapped[str] = mapped_column(String(128), unique=True, index=True)  # e.g. "user:read", "user:assign-role"
     description: Mapped[Optional[str]]
 
-    roles: Mapped[list[Role]] = relationship("Role", secondary=role_permissions, back_populates="permissions")
+    roles: Mapped[list[Role]] = relationship(
+        "Role",
+        secondary=role_permissions,
+        back_populates="permissions",
+        passive_deletes=True
+    )
