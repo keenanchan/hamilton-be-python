@@ -2,6 +2,7 @@ from sqlalchemy import select
 from src.db.base import SessionLocal
 from src.db.models import User, AuthIdentity, ProviderEnum, Role, Permission
 from src.core.security import hash_password
+from src.services._normalize import normalize_identifier
 
 import unicodedata
 from typing import Optional
@@ -9,14 +10,6 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-
-
-def normalize_identifier(provider: ProviderEnum, raw: str) -> str:
-    """Normalize identifier for case-insensitive matching."""
-    s = unicodedata.normalize("NFKC", raw).strip()
-    if provider in {ProviderEnum.email, ProviderEnum.username, ProviderEnum.room}:
-        s = s.casefold()
-    return s
 
 
 def ensure_superadmin_role(db):
@@ -51,7 +44,7 @@ def upsert_user_with_identity(
     identity = db.scalar(
         select(AuthIdentity).where(
             AuthIdentity.provider == provider,
-            AuthIdentity.identifier_norm == identifier_norm,
+            AuthIdentity.identifier_normalized == identifier_norm,
             AuthIdentity.is_active == True,  # noqa: E712
         )
     )
@@ -81,7 +74,7 @@ def upsert_user_with_identity(
         user_id=user.id,
         provider=provider,
         identifier=identifier,
-        identifier_norm=identifier_norm,
+        identifier_normalized=identifier_norm,
         password_hash=hash_password(password_plaintext),
         is_active=True,
         is_primary=is_primary,

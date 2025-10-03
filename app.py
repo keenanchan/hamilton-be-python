@@ -1,8 +1,10 @@
 from flask import Flask, jsonify
 from src.core.config import config
+from src.api.routes_auth import bp_auth
 
 def create_app():
     app = Flask(config.APP_NAME)
+    app.register_blueprint(bp_auth)
 
     @app.get("/health")
     def health():
